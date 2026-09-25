@@ -18,7 +18,8 @@ class NetworkMonitor:
         - Reuse NetworkCapture for packet processing,
           AI classification and database persistence.
         - Expose monitoring status.
-        - Handle capture errors without crashing the application.
+        - Handle capture errors without crashing FastAPI.
+        - Keep monitor state consistent when capture fails.
 
     Architecture:
 
@@ -32,8 +33,10 @@ class NetworkMonitor:
           ↓
         SQLite
 
-    This class is intentionally independent of FastAPI and React.
-    FastAPI will call start(), stop() and get_status() later.
+    The class is independent of FastAPI.
+    FastAPI interacts with the application-level monitor
+    through start_monitor(), stop_monitor() and
+    get_monitor_status().
     """
 
     def __init__(
@@ -69,8 +72,26 @@ class NetworkMonitor:
         self._monitor_thread: Optional[threading.Thread] = None
 
         self._stop_event = threading.Event()
-
         self._lock = threading.Lock()
+
+    # ==================================================================
+    # INTERNAL ERROR HANDLING
+    # ==================================================================
+
+    def _set_error(self, error: Exception) -> None:
+        """
+        Store a readable error message and print it.
+
+        This keeps worker exceptions visible through the API
+        without allowing them to crash the FastAPI process.
+        """
+
+        message = f"{type(error).__name__}: {error}"
+
+        self.last_error = message
+
+        print("\n[NTA MONITOR ERROR]")
+        print(message)
 
     # ==================================================================
     # PACKET CAPTURE WORKER
@@ -80,9 +101,15 @@ class NetworkMonitor:
         """
         Background Scapy capture worker.
 
-        Uses timeout-based sniffing rather than an unlimited blocking
-        sniff() call so the monitor can stop cleanly.
+        Timeout-based sniffing is used instead of an unlimited
+        blocking sniff() call so the monitor can stop cleanly.
+
+        If Scapy cannot access the network interface, the worker
+        records the error and stops the monitor instead of leaving
+        the API reporting a false running state.
         """
+
+        capture_failed = False
 
         try:
             while not self._stop_event.is_set():
@@ -94,13 +121,21 @@ class NetworkMonitor:
                 )
 
         except Exception as exc:
-            self.last_error = str(exc)
+            capture_failed = True
 
-            print("\n[MONITOR CAPTURE ERROR]")
-            print(f"{type(exc).__name__}: {exc}")
+            self._set_error(exc)
+
+            self.capture.last_error = str(exc)
 
         finally:
             self._stop_event.set()
+
+            if capture_failed:
+                with self._lock:
+                    self.running = False
+                    self.capture.running = False
+                    self.capture.stopped_at = time.time()
+                    self.stopped_at = time.time()
 
     # ==================================================================
     # FLOW TIMEOUT WORKER
@@ -121,10 +156,17 @@ class NetworkMonitor:
                 self.capture.expire_flows()
 
         except Exception as exc:
-            self.last_error = str(exc)
+            self._set_error(exc)
 
-            print("\n[MONITOR TIMEOUT ERROR]")
-            print(f"{type(exc).__name__}: {exc}")
+            self.capture.last_error = str(exc)
+
+            self._stop_event.set()
+
+            with self._lock:
+                self.running = False
+                self.capture.running = False
+                self.capture.stopped_at = time.time()
+                self.stopped_at = time.time()
 
     # ==================================================================
     # START
@@ -144,12 +186,13 @@ class NetworkMonitor:
             if self.running:
                 return False
 
+            # Clear state from the previous run.
             self.last_error = None
+            self.capture.last_error = None
 
             self._stop_event.clear()
 
             self.capture.running = True
-            self.capture.last_error = None
 
             self.capture.packets_captured = 0
             self.capture.flows_analyzed = 0
@@ -177,11 +220,11 @@ class NetworkMonitor:
             self._capture_thread.start()
             self._monitor_thread.start()
 
-            print("=" * 60)
-            print("NTA CONTINUOUS MONITORING STARTED")
-            print("=" * 60)
+        print("=" * 60)
+        print("NTA CONTINUOUS MONITORING STARTED")
+        print("=" * 60)
 
-            return True
+        return True
 
     # ==================================================================
     # STOP
@@ -193,7 +236,7 @@ class NetworkMonitor:
 
         Returns:
             True if monitoring was stopped.
-            False if it was not running.
+            False if monitoring was not running.
         """
 
         with self._lock:
@@ -205,22 +248,23 @@ class NetworkMonitor:
 
             self._stop_event.set()
 
-        # Wait outside the lock so worker threads can finish safely.
-        if self._capture_thread is not None:
-            self._capture_thread.join(timeout=5)
+            capture_thread = self._capture_thread
+            monitor_thread = self._monitor_thread
 
-        if self._monitor_thread is not None:
-            self._monitor_thread.join(timeout=5)
+        # Wait outside the lock so worker threads can finish safely.
+        if capture_thread is not None:
+            capture_thread.join(timeout=5)
+
+        if monitor_thread is not None:
+            monitor_thread.join(timeout=5)
 
         # Complete and analyze any remaining active flows.
         try:
             self.capture.flush_flows()
 
         except Exception as exc:
-            self.last_error = str(exc)
-
-            print("\n[MONITOR FLUSH ERROR]")
-            print(f"{type(exc).__name__}: {exc}")
+            self._set_error(exc)
+            self.capture.last_error = str(exc)
 
         with self._lock:
 
@@ -230,6 +274,9 @@ class NetworkMonitor:
             self.capture.stopped_at = time.time()
 
             self.stopped_at = time.time()
+
+            self._capture_thread = None
+            self._monitor_thread = None
 
         print("NTA continuous monitoring stopped.")
 
@@ -243,8 +290,7 @@ class NetworkMonitor:
         """
         Return complete monitoring status.
 
-        This structure is designed for future FastAPI endpoints
-        and the React dashboard.
+        This structure is consumed by FastAPI and the React dashboard.
         """
 
         capture_status = self.capture.get_status()
@@ -253,6 +299,7 @@ class NetworkMonitor:
             "running": self.running,
 
             "started_at": self.started_at,
+
             "stopped_at": self.stopped_at,
 
             "packets_captured": (
@@ -288,19 +335,25 @@ class NetworkMonitor:
         Monitoring must be stopped before resetting.
         """
 
-        if self.running:
-            return False
+        with self._lock:
 
-        self.capture = NetworkCapture(
-            flow_timeout=self.capture.flow_manager.timeout
-        )
+            if self.running:
+                return False
 
-        self.started_at = None
-        self.stopped_at = None
-        self.last_error = None
+            flow_timeout = self.capture.flow_manager.timeout
 
-        self._capture_thread = None
-        self._monitor_thread = None
+            self.capture = NetworkCapture(
+                flow_timeout=flow_timeout
+            )
+
+            self.started_at = None
+            self.stopped_at = None
+            self.last_error = None
+
+            self._capture_thread = None
+            self._monitor_thread = None
+
+            self._stop_event.clear()
 
         return True
 
@@ -316,8 +369,7 @@ def get_monitor() -> NetworkMonitor:
     """
     Return the application-level NetworkMonitor instance.
 
-    FastAPI can use this singleton so that the API and background
-    monitoring operate on the same monitor.
+    FastAPI and the command-line entry point use the same monitor.
     """
 
     return _monitor
