@@ -1,18 +1,20 @@
-import joblib
-import pandas as pd
-
 from pathlib import Path
+
+import pandas as pd
+from xgboost import XGBClassifier
 
 from app.ml.preprocess import prepare_features
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-MODEL_PATH = PROJECT_ROOT / "models" / "xgboost_ddos.joblib"
+MODEL_PATH = (
+    PROJECT_ROOT
+    / "models"
+    / "xgboost_ddos.json"
+)
 
 
-# IMPORTANT:
-# These must exactly match the features used during training.
 FEATURES = [
     "duration",
     "forward_packets",
@@ -37,7 +39,17 @@ class DDoSPredictor:
 
         print("Loading NTA AI model...")
 
-        self.model = joblib.load(MODEL_PATH)
+        if not MODEL_PATH.exists():
+            raise FileNotFoundError(
+                f"XGBoost model not found: {MODEL_PATH}\n"
+                "Run the training script first."
+            )
+
+        self.model = XGBClassifier()
+
+        self.model.load_model(
+            MODEL_PATH
+        )
 
         print("XGBoost model loaded.")
 
@@ -55,16 +67,18 @@ class DDoSPredictor:
         # Keep ONLY the features used during training.
         features = features[FEATURES]
 
-        # Make sure feature order is correct.
+        # Make sure feature order and types are correct.
         features = features.astype(float)
 
-        # Generate probability.
+        # Generate DDoS probability.
         probability = float(
             self.model.predict_proba(features)[0][1]
         )
 
         # Binary prediction.
-        prediction = int(probability >= 0.5)
+        prediction = int(
+            probability >= 0.5
+        )
 
         label = (
             "DDoS"

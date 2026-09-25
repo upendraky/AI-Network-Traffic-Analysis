@@ -1,80 +1,372 @@
+import threading
 import time
+from typing import Optional
 
-from app.ml.predict import predict_flow
+from scapy.all import sniff
+
 from app.network.capture import NetworkCapture
 
 
 class NetworkMonitor:
     """
-    Captures live network traffic, builds flows,
-    and sends completed flows to the AI model.
+    Continuous network monitoring service.
+
+    Responsibilities:
+        - Start background packet capture.
+        - Stop packet capture safely.
+        - Periodically expire inactive flows.
+        - Reuse NetworkCapture for packet processing,
+          AI classification and database persistence.
+        - Expose monitoring status.
+        - Handle capture errors without crashing the application.
+
+    Architecture:
+
+        Scapy
+          ↓
+        NetworkCapture
+          ↓
+        FlowManager
+          ↓
+        XGBoost
+          ↓
+        SQLite
+
+    This class is intentionally independent of FastAPI and React.
+    FastAPI will call start(), stop() and get_status() later.
     """
 
-    def __init__(self):
-        self.capture = NetworkCapture()
+    def __init__(
+        self,
+        flow_timeout: float = 30.0,
+        timeout_check_interval: float = 1.0,
+    ):
+        """
+        Initialize the monitoring service.
 
-    def process_completed_flows(self):
-        flows = self.capture.get_flows()
+        Args:
+            flow_timeout:
+                Seconds of inactivity before a flow is completed.
 
-        print("\n" + "=" * 70)
-        print("AI NETWORK TRAFFIC ANALYSIS")
-        print("=" * 70)
+            timeout_check_interval:
+                How often inactive flows are checked.
+        """
 
-        print(f"Flows detected: {len(flows)}")
+        self.capture = NetworkCapture(
+            flow_timeout=flow_timeout
+        )
 
-        for flow in flows:
-            try:
-                result = predict_flow(flow)
+        self.timeout_check_interval = timeout_check_interval
 
-                print("\nFlow:")
-                print(
-                    f"{flow['src_ip']}:{flow['src_port']} "
-                    f"-> "
-                    f"{flow['dst_ip']}:{flow['dst_port']}"
+        self.running = False
+
+        self.started_at: Optional[float] = None
+        self.stopped_at: Optional[float] = None
+
+        self.last_error: Optional[str] = None
+
+        self._capture_thread: Optional[threading.Thread] = None
+        self._monitor_thread: Optional[threading.Thread] = None
+
+        self._stop_event = threading.Event()
+
+        self._lock = threading.Lock()
+
+    # ==================================================================
+    # PACKET CAPTURE WORKER
+    # ==================================================================
+
+    def _capture_worker(self) -> None:
+        """
+        Background Scapy capture worker.
+
+        Uses timeout-based sniffing rather than an unlimited blocking
+        sniff() call so the monitor can stop cleanly.
+        """
+
+        try:
+            while not self._stop_event.is_set():
+
+                sniff(
+                    prn=self.capture.process_packet,
+                    store=False,
+                    timeout=1,
                 )
 
-                print(f"Protocol: {flow['protocol']}")
-                print(f"Packets: {flow['total_packets']}")
-                print(f"Bytes: {flow['total_bytes']}")
+        except Exception as exc:
+            self.last_error = str(exc)
 
-                print(
-                    f"AI Prediction: {result['label']}"
-                )
+            print("\n[MONITOR CAPTURE ERROR]")
+            print(f"{type(exc).__name__}: {exc}")
 
-                print(
-                    f"DDoS Probability: "
-                    f"{result['probability']:.6f}"
-                )
+        finally:
+            self._stop_event.set()
 
-                if result["prediction"] == 1:
-                    print("🚨 ALERT: DDoS traffic detected!")
-                else:
-                    print("✓ Traffic appears benign.")
+    # ==================================================================
+    # FLOW TIMEOUT WORKER
+    # ==================================================================
 
-            except Exception as e:
-                print(f"Prediction error: {e}")
+    def _timeout_worker(self) -> None:
+        """
+        Periodically check for inactive flows.
 
-    def start(self, packet_count=100):
+        This is important because a flow can become inactive even
+        when no new packet arrives.
+        """
 
-        print("=" * 70)
-        print("NTA - AI NETWORK TRAFFIC MONITOR")
-        print("=" * 70)
+        try:
+            while not self._stop_event.wait(
+                self.timeout_check_interval
+            ):
+                self.capture.expire_flows()
 
-        print(f"\nCapturing {packet_count} packets...")
+        except Exception as exc:
+            self.last_error = str(exc)
 
-        self.capture.start(packet_count)
+            print("\n[MONITOR TIMEOUT ERROR]")
+            print(f"{type(exc).__name__}: {exc}")
 
-        print("\nCapture finished.")
+    # ==================================================================
+    # START
+    # ==================================================================
 
-        self.process_completed_flows()
+    def start(self) -> bool:
+        """
+        Start continuous network monitoring.
+
+        Returns:
+            True if monitoring was started.
+            False if it was already running.
+        """
+
+        with self._lock:
+
+            if self.running:
+                return False
+
+            self.last_error = None
+
+            self._stop_event.clear()
+
+            self.capture.running = True
+            self.capture.last_error = None
+
+            self.capture.packets_captured = 0
+            self.capture.flows_analyzed = 0
+
+            self.capture.started_at = time.time()
+            self.capture.stopped_at = None
+
+            self.started_at = time.time()
+            self.stopped_at = None
+
+            self.running = True
+
+            self._capture_thread = threading.Thread(
+                target=self._capture_worker,
+                name="nta-packet-capture",
+                daemon=True,
+            )
+
+            self._monitor_thread = threading.Thread(
+                target=self._timeout_worker,
+                name="nta-flow-monitor",
+                daemon=True,
+            )
+
+            self._capture_thread.start()
+            self._monitor_thread.start()
+
+            print("=" * 60)
+            print("NTA CONTINUOUS MONITORING STARTED")
+            print("=" * 60)
+
+            return True
+
+    # ==================================================================
+    # STOP
+    # ==================================================================
+
+    def stop(self) -> bool:
+        """
+        Stop continuous monitoring safely.
+
+        Returns:
+            True if monitoring was stopped.
+            False if it was not running.
+        """
+
+        with self._lock:
+
+            if not self.running:
+                return False
+
+            print("\nStopping NTA continuous monitoring...")
+
+            self._stop_event.set()
+
+        # Wait outside the lock so worker threads can finish safely.
+        if self._capture_thread is not None:
+            self._capture_thread.join(timeout=5)
+
+        if self._monitor_thread is not None:
+            self._monitor_thread.join(timeout=5)
+
+        # Complete and analyze any remaining active flows.
+        try:
+            self.capture.flush_flows()
+
+        except Exception as exc:
+            self.last_error = str(exc)
+
+            print("\n[MONITOR FLUSH ERROR]")
+            print(f"{type(exc).__name__}: {exc}")
+
+        with self._lock:
+
+            self.running = False
+
+            self.capture.running = False
+            self.capture.stopped_at = time.time()
+
+            self.stopped_at = time.time()
+
+        print("NTA continuous monitoring stopped.")
+
+        return True
+
+    # ==================================================================
+    # STATUS
+    # ==================================================================
+
+    def get_status(self) -> dict:
+        """
+        Return complete monitoring status.
+
+        This structure is designed for future FastAPI endpoints
+        and the React dashboard.
+        """
+
+        capture_status = self.capture.get_status()
+
+        return {
+            "running": self.running,
+
+            "started_at": self.started_at,
+            "stopped_at": self.stopped_at,
+
+            "packets_captured": (
+                capture_status["packets_captured"]
+            ),
+
+            "flows_analyzed": (
+                capture_status["flows_analyzed"]
+            ),
+
+            "active_flows": (
+                capture_status["active_flows"]
+            ),
+
+            "completed_flows": (
+                capture_status["completed_flows"]
+            ),
+
+            "last_error": (
+                self.last_error
+                or capture_status["last_error"]
+            ),
+        }
+
+    # ==================================================================
+    # RESET
+    # ==================================================================
+
+    def reset(self) -> bool:
+        """
+        Reset monitoring state.
+
+        Monitoring must be stopped before resetting.
+        """
+
+        if self.running:
+            return False
+
+        self.capture = NetworkCapture(
+            flow_timeout=self.capture.flow_manager.timeout
+        )
+
+        self.started_at = None
+        self.stopped_at = None
+        self.last_error = None
+
+        self._capture_thread = None
+        self._monitor_thread = None
+
+        return True
 
 
-def start_monitor(packet_count=100):
+# ======================================================================
+# SINGLE APPLICATION-LEVEL MONITOR
+# ======================================================================
 
-    monitor = NetworkMonitor()
+_monitor = NetworkMonitor()
 
-    monitor.start(packet_count)
 
+def get_monitor() -> NetworkMonitor:
+    """
+    Return the application-level NetworkMonitor instance.
+
+    FastAPI can use this singleton so that the API and background
+    monitoring operate on the same monitor.
+    """
+
+    return _monitor
+
+
+def start_monitor() -> bool:
+    """
+    Start the application-level continuous monitor.
+    """
+
+    return _monitor.start()
+
+
+def stop_monitor() -> bool:
+    """
+    Stop the application-level continuous monitor.
+    """
+
+    return _monitor.stop()
+
+
+def get_monitor_status() -> dict:
+    """
+    Return application-level monitoring status.
+    """
+
+    return _monitor.get_status()
+
+
+# ======================================================================
+# COMMAND-LINE ENTRY POINT
+# ======================================================================
 
 if __name__ == "__main__":
-    start_monitor(100)
+    monitor = get_monitor()
+
+    try:
+        monitor.start()
+
+        print()
+        print("Monitoring live network traffic.")
+        print("Press Ctrl+C to stop.")
+        print()
+
+        while monitor.running:
+            time.sleep(1)
+
+    except KeyboardInterrupt:
+        print("\nKeyboard interrupt received.")
+
+    finally:
+        monitor.stop()

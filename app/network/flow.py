@@ -6,6 +6,10 @@ from typing import Optional
 class NetworkFlow:
     """
     Represents a bidirectional network flow.
+
+    A flow contains packets travelling between two endpoints.
+    Packets are separated into forward and backward directions
+    and aggregated into flow-level statistics.
     """
 
     src_ip: str
@@ -33,9 +37,15 @@ class NetworkFlow:
         packet_size: int,
         direction: str,
         tcp_flag: Optional[str] = None,
-    ):
+    ) -> None:
         """
-        Add a packet to the flow.
+        Add one packet to the flow.
+
+        Args:
+            timestamp: Packet timestamp.
+            packet_size: Packet size in bytes.
+            direction: Either "forward" or "backward".
+            tcp_flag: TCP flag string, if applicable.
         """
 
         self.last_time = timestamp
@@ -53,18 +63,26 @@ class NetworkFlow:
 
     @property
     def duration(self) -> float:
+        """Return flow duration in seconds."""
+
         return max(self.last_time - self.start_time, 0.0)
 
     @property
     def total_packets(self) -> int:
+        """Return total number of packets."""
+
         return self.forward_packets + self.backward_packets
 
     @property
     def total_bytes(self) -> int:
+        """Return total number of bytes."""
+
         return self.forward_bytes + self.backward_bytes
 
     @property
     def average_packet_size(self) -> float:
+        """Return average packet size in bytes."""
+
         if not self.packet_sizes:
             return 0.0
 
@@ -72,6 +90,8 @@ class NetworkFlow:
 
     @property
     def packets_per_second(self) -> float:
+        """Return packet transmission rate."""
+
         if self.duration <= 0:
             return 0.0
 
@@ -79,14 +99,41 @@ class NetworkFlow:
 
     @property
     def bytes_per_second(self) -> float:
+        """Return byte transmission rate."""
+
         if self.duration <= 0:
             return 0.0
 
         return self.total_bytes / self.duration
 
+    @property
+    def is_tcp_terminated(self) -> bool:
+        """
+        Determine whether a TCP flow has received a FIN or RST.
+
+        TCP termination flags:
+            F  -> FIN
+            R  -> RST
+            FA -> FIN + ACK
+            RA -> RST + ACK
+        """
+
+        if self.protocol != "TCP":
+            return False
+
+        termination_flags = {"F", "R", "FA", "RA"}
+
+        return any(
+            flag in termination_flags
+            for flag in self.tcp_flags
+        )
+
     def to_dict(self) -> dict:
         """
         Convert the flow into a dictionary.
+
+        This representation is used by the API, database layer,
+        debugging and future dashboard functionality.
         """
 
         return {
@@ -111,21 +158,63 @@ class NetworkFlow:
 
 class FlowManager:
     """
-    Maintains active network flows and expires
-    inactive flows after a configurable timeout.
+    Manages active and completed bidirectional network flows.
+
+    Responsibilities:
+        - Create flows.
+        - Match packets to existing flows.
+        - Track forward/backward traffic.
+        - Expire inactive flows.
+        - Detect TCP termination.
+        - Queue completed flows.
+        - Flush active flows.
+        - Provide flow statistics for monitoring/API layers.
+
+    The class is intentionally independent of:
+        - Scapy
+        - XGBoost
+        - SQLite
+        - FastAPI
+        - React
+
+    This keeps flow aggregation reusable across live capture,
+    testing, monitoring and future API functionality.
     """
 
-    def __init__(self, timeout=30.0):
-        self.flows: dict[tuple, NetworkFlow] = {}
-        self.completed_flows: list[dict] = []
+    def __init__(self, timeout: float = 30.0):
+        """
+        Initialize the flow manager.
+
+        Args:
+            timeout: Maximum inactivity period in seconds before
+                     a flow is considered completed.
+        """
+
         self.timeout = timeout
 
-    @staticmethod
-    def create_flow_key(features: dict) -> tuple:
-        """
-        Create a bidirectional flow key.
+        # Currently active flows.
+        self.active_flows: dict[tuple, NetworkFlow] = {}
 
-        A -> B and B -> A belong to the same flow.
+        # Completed flows waiting for processing.
+        self.completed_flows: list[NetworkFlow] = []
+
+    # ------------------------------------------------------------------
+    # FLOW IDENTIFICATION
+    # ------------------------------------------------------------------
+
+    def _flow_key(self, features: dict) -> tuple:
+        """
+        Generate a bidirectional flow key.
+
+        The two endpoints are sorted so that:
+
+            A -> B
+
+        and
+
+            B -> A
+
+        belong to the same flow.
         """
 
         endpoint_a = (
@@ -138,41 +227,94 @@ class FlowManager:
             features["dst_port"],
         )
 
-        endpoints = tuple(sorted([endpoint_a, endpoint_b]))
+        return tuple(sorted([endpoint_a, endpoint_b]))
 
-        return (
-            endpoints[0],
-            endpoints[1],
-            features["protocol"],
-        )
+    # ------------------------------------------------------------------
+    # FLOW COMPLETION
+    # ------------------------------------------------------------------
 
-    def _expire_flows(self, current_time: float):
+    def _complete_flow(self, key: tuple) -> Optional[NetworkFlow]:
         """
-        Move inactive flows from active storage
-        to completed flows.
+        Move one active flow to the completed queue.
         """
 
-        expired_keys = []
+        flow = self.active_flows.pop(key, None)
 
-        for key, flow in self.flows.items():
-            if current_time - flow.last_time >= self.timeout:
-                self.completed_flows.append(flow.to_dict())
-                expired_keys.append(key)
+        if flow is not None:
+            self.completed_flows.append(flow)
 
-        for key in expired_keys:
-            del self.flows[key]
+        return flow
 
-    def add_packet(self, features: dict, timestamp: float):
+    # ------------------------------------------------------------------
+    # FLOW EXPIRATION
+    # ------------------------------------------------------------------
+
+    def _expire_flows(self, current_time: float) -> list[NetworkFlow]:
         """
-        Add a packet to the appropriate flow.
+        Expire flows that have been inactive longer than timeout.
+
+        Completed flows remain in the completed queue so that the
+        capture/monitor layer can process them safely.
         """
 
+        expired_flows = []
+
+        for key, flow in list(self.active_flows.items()):
+            inactive_time = current_time - flow.last_time
+
+            if inactive_time >= self.timeout:
+                completed = self._complete_flow(key)
+
+                if completed is not None:
+                    expired_flows.append(completed)
+
+        return expired_flows
+
+    def expire_flows(self, current_time: float) -> list[NetworkFlow]:
+        """
+        Public method for expiring inactive flows.
+
+        This method will be used by the future continuous monitor.
+        """
+
+        return self._expire_flows(current_time)
+
+    # ------------------------------------------------------------------
+    # ADD PACKET
+    # ------------------------------------------------------------------
+
+    def add_packet(
+        self,
+        features: dict,
+        timestamp: float,
+    ) -> NetworkFlow:
+        """
+        Add a packet to the appropriate bidirectional flow.
+
+        Args:
+            features: Packet features produced by features.py.
+            timestamp: Packet timestamp.
+
+        Returns:
+            The NetworkFlow associated with the packet.
+
+        Note:
+            A flow may be completed immediately after this method
+            if a TCP FIN/RST is detected. The completed flow remains
+            available through drain_completed_flows().
+        """
+
+        # Expire old flows before processing the new packet.
         self._expire_flows(timestamp)
 
-        key = self.create_flow_key(features)
+        key = self._flow_key(features)
 
-        if key not in self.flows:
-            flow = NetworkFlow(
+        # --------------------------------------------------------------
+        # CREATE NEW FLOW
+        # --------------------------------------------------------------
+
+        if key not in self.active_flows:
+            self.active_flows[key] = NetworkFlow(
                 src_ip=features["src_ip"],
                 dst_ip=features["dst_ip"],
                 src_port=features["src_port"],
@@ -182,46 +324,127 @@ class FlowManager:
                 last_time=timestamp,
             )
 
-            self.flows[key] = flow
-            direction = "forward"
+        flow = self.active_flows[key]
 
-        else:
-            flow = self.flows[key]
+        # --------------------------------------------------------------
+        # DETERMINE DIRECTION
+        # --------------------------------------------------------------
 
-            if (
-                features["src_ip"] == flow.src_ip
-                and features["src_port"] == flow.src_port
-            ):
-                direction = "forward"
-            else:
-                direction = "backward"
+        is_forward = (
+            features["src_ip"] == flow.src_ip
+            and features["src_port"] == flow.src_port
+            and features["dst_ip"] == flow.dst_ip
+            and features["dst_port"] == flow.dst_port
+        )
+
+        direction = "forward" if is_forward else "backward"
+
+        packet_size = int(features.get("packet_size", 0))
+
+        tcp_flag = features.get("tcp_flags")
+
+        # --------------------------------------------------------------
+        # ADD PACKET
+        # --------------------------------------------------------------
 
         flow.add_packet(
             timestamp=timestamp,
-            packet_size=features["packet_size"],
+            packet_size=packet_size,
             direction=direction,
-            tcp_flag=features.get("tcp_flags"),
+            tcp_flag=tcp_flag,
         )
+
+        # --------------------------------------------------------------
+        # TCP TERMINATION
+        # --------------------------------------------------------------
+
+        if flow.is_tcp_terminated:
+            self._complete_flow(key)
 
         return flow
 
-    def get_active_flows(self) -> list[dict]:
+    # ------------------------------------------------------------------
+    # COMPLETED FLOW QUEUE
+    # ------------------------------------------------------------------
+
+    def drain_completed_flows(self) -> list[NetworkFlow]:
         """
-        Return currently active flows.
+        Return all completed flows and clear the queue.
+
+        This is the main interface the capture/monitor layer should
+        use when it wants to process completed flows.
         """
 
-        return [flow.to_dict() for flow in self.flows.values()]
+        completed = list(self.completed_flows)
 
-    def get_completed_flows(self) -> list[dict]:
+        self.completed_flows.clear()
+
+        return completed
+
+    # ------------------------------------------------------------------
+    # FLUSH
+    # ------------------------------------------------------------------
+
+    def flush_all(self) -> list[NetworkFlow]:
         """
-        Return completed/expired flows.
+        Complete every currently active flow.
+
+        This is used when:
+            - packet capture stops
+            - monitoring stops
+            - the application shuts down
+            - a test needs to finalize all flows
         """
 
-        return self.completed_flows
+        for key in list(self.active_flows.keys()):
+            self._complete_flow(key)
 
-    def get_flows(self) -> list[dict]:
+        return self.drain_completed_flows()
+
+    # ------------------------------------------------------------------
+    # FLOW ACCESS
+    # ------------------------------------------------------------------
+
+    def get_active_flows(self) -> list[NetworkFlow]:
+        """Return a snapshot of currently active flows."""
+
+        return list(self.active_flows.values())
+
+    def get_completed_flows(self) -> list[NetworkFlow]:
+        """Return completed flows waiting for processing."""
+
+        return list(self.completed_flows)
+
+    def get_flows(self) -> list[NetworkFlow]:
         """
-        Return active and completed flows.
+        Return both active and completed flows.
+
+        Primarily useful for debugging and monitoring.
         """
 
-        return self.get_active_flows() + self.completed_flows
+        return (
+            list(self.active_flows.values())
+            + list(self.completed_flows)
+        )
+
+    # ------------------------------------------------------------------
+    # COUNTERS
+    # ------------------------------------------------------------------
+
+    @property
+    def active_count(self) -> int:
+        """Return number of currently active flows."""
+
+        return len(self.active_flows)
+
+    @property
+    def completed_count(self) -> int:
+        """Return number of completed flows waiting for processing."""
+
+        return len(self.completed_flows)
+
+    @property
+    def total_count(self) -> int:
+        """Return total active + completed flows."""
+
+        return self.active_count + self.completed_count

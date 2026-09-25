@@ -1,10 +1,9 @@
-import joblib
-import pandas as pd
-
 from pathlib import Path
-from xgboost import XGBClassifier
-from sklearn.model_selection import train_test_split
+
+import pandas as pd
 from sklearn.metrics import classification_report, roc_auc_score
+from sklearn.model_selection import train_test_split
+from xgboost import XGBClassifier
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -19,7 +18,7 @@ DATA_PATH = (
 
 MODEL_DIR = PROJECT_ROOT / "models"
 
-MODEL_PATH = MODEL_DIR / "xgboost_ddos.joblib"
+MODEL_PATH = MODEL_DIR / "xgboost_ddos.json"
 
 
 FEATURES = [
@@ -46,8 +45,12 @@ def main():
 
     MODEL_DIR.mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
+
+    # --------------------------------------------------
+    # Load dataset
+    # --------------------------------------------------
 
     print("\nLoading dataset:")
     print(DATA_PATH)
@@ -57,7 +60,7 @@ def main():
     print("Dataset shape:", df.shape)
 
     # --------------------------------------------------
-    # Validate required columns
+    # Validate columns
     # --------------------------------------------------
 
     required_columns = FEATURES + [TARGET]
@@ -80,17 +83,16 @@ def main():
     # --------------------------------------------------
 
     for column in FEATURES:
-
         df[column] = pd.to_numeric(
             df[column],
-            errors="coerce"
+            errors="coerce",
         )
 
     df[FEATURES] = (
         df[FEATURES]
         .replace(
             [float("inf"), float("-inf")],
-            0
+            0,
         )
         .fillna(0)
     )
@@ -114,6 +116,7 @@ def main():
     print("\nFeature count:", len(FEATURES))
 
     print("\nFeatures:")
+
     for feature in FEATURES:
         print(" -", feature)
 
@@ -154,7 +157,7 @@ def main():
 
     model.fit(
         X_train,
-        y_train
+        y_train,
     )
 
     print("\nModel training completed.")
@@ -177,14 +180,14 @@ def main():
             y_pred,
             target_names=[
                 "BENIGN",
-                "DDoS"
+                "DDoS",
             ],
         )
     )
 
     roc_auc = roc_auc_score(
         y_test,
-        y_probability
+        y_probability,
     )
 
     print(
@@ -192,15 +195,12 @@ def main():
     )
 
     # --------------------------------------------------
-    # Save model
+    # Save using XGBoost native format
     # --------------------------------------------------
 
-    joblib.dump(
-        model,
-        MODEL_PATH
-    )
+    model.save_model(MODEL_PATH)
 
-    print("\nModel saved:")
+    print("\nModel saved using XGBoost native format:")
     print(MODEL_PATH)
 
     print("\nTraining complete.")
