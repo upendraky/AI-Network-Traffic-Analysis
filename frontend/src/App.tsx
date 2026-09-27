@@ -53,7 +53,6 @@ import {
   YAxis,
 } from "recharts";
 
-
 // ============================================================
 // HELPERS
 // ============================================================
@@ -67,7 +66,6 @@ function formatAddress(address: string) {
 
   return `${address.slice(0, 15)}...${address.slice(-12)}`;
 }
-
 
 function formatBytes(bytes: number) {
   if (!Number.isFinite(bytes)) return "0 B";
@@ -87,23 +85,19 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
-
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value || 0);
 }
 
-
 function formatProbability(value: number) {
   return `${((value || 0) * 100).toFixed(4)}%`;
 }
-
 
 function formatMonitorTime(value: number | null) {
   if (!value) return "-";
 
   return new Date(value * 1000).toLocaleTimeString();
 }
-
 
 // ============================================================
 // PREDICTION BADGE
@@ -141,7 +135,6 @@ function PredictionBadge({
   );
 }
 
-
 // ============================================================
 // STAT CARD
 // ============================================================
@@ -172,14 +165,11 @@ function StatCard({
           <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
         </div>
 
-        <div className={`rounded-xl p-3 ${iconClass}`}>
-          {icon}
-        </div>
+        <div className={`rounded-xl p-3 ${iconClass}`}>{icon}</div>
       </div>
     </div>
   );
 }
-
 
 // ============================================================
 // PIPELINE STEP
@@ -217,7 +207,6 @@ function PipelineStep({
   );
 }
 
-
 // ============================================================
 // PIPELINE ARROW
 // ============================================================
@@ -229,7 +218,6 @@ function PipelineArrow() {
     </div>
   );
 }
-
 
 // ============================================================
 // DETAIL ITEM
@@ -255,7 +243,6 @@ function DetailItem({
   );
 }
 
-
 // ============================================================
 // FLOW DETAILS
 // ============================================================
@@ -272,7 +259,6 @@ function FlowDetails({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
       <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950 shadow-2xl">
-
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-800 bg-slate-950/95 px-6 py-4 backdrop-blur">
           <div>
             <p className="text-xs uppercase tracking-wider text-cyan-400">
@@ -293,10 +279,7 @@ function FlowDetails({
           </button>
         </div>
 
-
         <div className="space-y-6 p-6">
-
-          {/* Prediction */}
           <div
             className={`rounded-2xl border p-5 ${
               isDdos
@@ -305,14 +288,12 @@ function FlowDetails({
             }`}
           >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-
               <div>
                 <p className="text-xs uppercase tracking-wider text-slate-500">
                   AI Prediction
                 </p>
 
                 <div className="mt-2 flex items-center gap-3">
-
                   {isDdos ? (
                     <ShieldAlert className="h-7 w-7 text-red-400" />
                   ) : (
@@ -321,9 +302,7 @@ function FlowDetails({
 
                   <span
                     className={`text-3xl font-bold ${
-                      isDdos
-                        ? "text-red-400"
-                        : "text-emerald-400"
+                      isDdos ? "text-red-400" : "text-emerald-400"
                     }`}
                   >
                     {flow.label}
@@ -332,20 +311,15 @@ function FlowDetails({
               </div>
 
               <div className="rounded-xl bg-slate-950/70 px-6 py-4 text-center">
-                <p className="text-xs text-slate-500">
-                  DDoS Probability
-                </p>
+                <p className="text-xs text-slate-500">DDoS Probability</p>
 
                 <p className="mt-1 text-2xl font-bold text-white">
                   {formatProbability(flow.probability)}
                 </p>
               </div>
-
             </div>
           </div>
 
-
-          {/* Flow information */}
           <div>
             <div className="mb-3 flex items-center gap-2">
               <Network className="h-4 w-4 text-cyan-400" />
@@ -356,7 +330,6 @@ function FlowDetails({
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-
               <DetailItem
                 label="Source"
                 value={`${flow.src_ip}:${flow.src_port}`}
@@ -367,10 +340,7 @@ function FlowDetails({
                 value={`${flow.dst_ip}:${flow.dst_port}`}
               />
 
-              <DetailItem
-                label="Protocol"
-                value={flow.protocol}
-              />
+              <DetailItem label="Protocol" value={flow.protocol} />
 
               <DetailItem
                 label="Timestamp"
@@ -382,16 +352,10 @@ function FlowDetails({
                 value={`${flow.duration.toFixed(4)} sec`}
               />
 
-              <DetailItem
-                label="Prediction"
-                value={flow.prediction}
-              />
-
+              <DetailItem label="Prediction" value={flow.prediction} />
             </div>
           </div>
 
-
-          {/* Packet statistics */}
           <div>
             <div className="mb-3 flex items-center gap-2">
               <Activity className="h-4 w-4 text-cyan-400" />
@@ -402,7 +366,6 @@ function FlowDetails({
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-
               <DetailItem
                 label="Forward Packets"
                 value={formatNumber(flow.forward_packets)}
@@ -422,12 +385,9 @@ function FlowDetails({
                 label="TCP Flags"
                 value={flow.tcp_flags || "-"}
               />
-
             </div>
           </div>
 
-
-          {/* Traffic statistics */}
           <div>
             <div className="mb-3 flex items-center gap-2">
               <Gauge className="h-4 w-4 text-cyan-400" />
@@ -438,7 +398,6 @@ function FlowDetails({
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-
               <DetailItem
                 label="Forward Bytes"
                 value={formatBytes(flow.forward_bytes)}
@@ -468,20 +427,14 @@ function FlowDetails({
                 label="Bytes / Sec"
                 value={formatBytes(flow.bytes_per_second)}
               />
-
             </div>
           </div>
 
-
-          {/* AI explanation */}
           <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
-
             <div className="flex items-center gap-2">
               <BrainCircuit className="h-5 w-5 text-cyan-400" />
 
-              <h3 className="font-semibold text-white">
-                AI Analysis
-              </h3>
+              <h3 className="font-semibold text-white">AI Analysis</h3>
             </div>
 
             <p className="mt-3 text-sm leading-6 text-slate-400">
@@ -489,15 +442,12 @@ function FlowDetails({
                 ? "The XGBoost classifier identified traffic characteristics consistent with DDoS activity."
                 : "The XGBoost classifier identified traffic characteristics consistent with benign network activity."}
             </p>
-
           </div>
-
         </div>
       </div>
     </div>
   );
 }
-
 
 // ============================================================
 // AI MODEL TEST LAB
@@ -512,7 +462,6 @@ function DemoTestLab() {
 
   const [demoError, setDemoError] =
     useState<string | null>(null);
-
 
   const runDemoTest = async (
     testType: "benign" | "ddos",
@@ -535,12 +484,9 @@ function DemoTestLab() {
     }
   };
 
-
   return (
     <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl">
-
       <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-
         <div>
           <div className="flex items-center gap-2">
             <FlaskConical className="h-5 w-5 text-cyan-400" />
@@ -559,13 +505,9 @@ function DemoTestLab() {
         <span className="w-fit rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-300">
           DEMO MODE
         </span>
-
       </div>
 
-
       <div className="grid gap-4 md:grid-cols-2">
-
-        {/* BENIGN */}
         <button
           type="button"
           onClick={() => runDemoTest("benign")}
@@ -573,9 +515,7 @@ function DemoTestLab() {
           className="group rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5 text-left transition hover:border-emerald-400/60 hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <div className="flex items-center justify-between">
-
             <div className="flex items-center gap-3">
-
               <div className="rounded-lg bg-emerald-500/10 p-2">
                 <ShieldCheck className="h-5 w-5 text-emerald-400" />
               </div>
@@ -589,18 +529,14 @@ function DemoTestLab() {
                   Run a known benign sample
                 </p>
               </div>
-
             </div>
 
             {demoLoading === "benign" && (
               <Loader2 className="h-5 w-5 animate-spin text-emerald-400" />
             )}
-
           </div>
         </button>
 
-
-        {/* DDOS */}
         <button
           type="button"
           onClick={() => runDemoTest("ddos")}
@@ -608,9 +544,7 @@ function DemoTestLab() {
           className="group rounded-xl border border-red-500/30 bg-red-500/5 p-5 text-left transition hover:border-red-400/60 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <div className="flex items-center justify-between">
-
             <div className="flex items-center gap-3">
-
               <div className="rounded-lg bg-red-500/10 p-2">
                 <ShieldAlert className="h-5 w-5 text-red-400" />
               </div>
@@ -624,18 +558,14 @@ function DemoTestLab() {
                   Run a known DDoS sample
                 </p>
               </div>
-
             </div>
 
             {demoLoading === "ddos" && (
               <Loader2 className="h-5 w-5 animate-spin text-red-400" />
             )}
-
           </div>
         </button>
-
       </div>
-
 
       {demoError && (
         <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
@@ -643,19 +573,15 @@ function DemoTestLab() {
         </div>
       )}
 
-
       {demoResult && (
         <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/60 p-5">
-
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
             <div>
               <p className="text-xs uppercase tracking-wider text-slate-500">
                 Classification Result
               </p>
 
               <div className="mt-2 flex items-center gap-3">
-
                 {demoResult.label === "DDoS" ? (
                   <ShieldAlert className="h-7 w-7 text-red-400" />
                 ) : (
@@ -671,10 +597,8 @@ function DemoTestLab() {
                 >
                   {demoResult.label}
                 </span>
-
               </div>
             </div>
-
 
             <div className="rounded-xl bg-slate-900 px-5 py-3 text-center">
               <p className="text-xs text-slate-500">
@@ -685,12 +609,9 @@ function DemoTestLab() {
                 {demoResult.confidence.toFixed(4)}%
               </p>
             </div>
-
           </div>
 
-
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
-
             <DetailItem
               label="Expected"
               value={demoResult.expected_label}
@@ -705,27 +626,33 @@ function DemoTestLab() {
               label="Benign Probability"
               value={`${demoResult.benign_probability.toFixed(4)}%`}
             />
-
           </div>
-
 
           <p className="mt-4 text-xs text-slate-500">
             {demoResult.message}
           </p>
-
         </div>
       )}
-
     </section>
   );
 }
-
 
 // ============================================================
 // MAIN APP
 // ============================================================
 
 function App() {
+  // ----------------------------------------------------------
+  // Environment
+  // ----------------------------------------------------------
+
+  const apiBaseUrl =
+    import.meta.env.VITE_API_BASE_URL ||
+    "http://127.0.0.1:8000";
+
+  const isProductionApi =
+    apiBaseUrl.includes("onrender.com") ||
+    apiBaseUrl.includes("render.com");
 
   // ----------------------------------------------------------
   // Dashboard state
@@ -762,11 +689,8 @@ function App() {
   const [dashboardError, setDashboardError] =
     useState<string | null>(null);
 
-
-
   const [selectedFlow, setSelectedFlow] =
     useState<NetworkFlow | null>(null);
-
 
   // ----------------------------------------------------------
   // Load dashboard
@@ -791,17 +715,11 @@ function App() {
       );
 
       setStats(statsData);
-
       setFlows(flowsData);
-
       setMonitor(monitorData);
 
       setDashboardError(null);
-
-
-
     } catch (error) {
-
       console.error(
         "Dashboard loading error:",
         error,
@@ -814,12 +732,10 @@ function App() {
           ? error.message
           : "Unable to connect to backend.",
       );
-
     } finally {
       setLoading(false);
     }
   }
-
 
   // ----------------------------------------------------------
   // Monitor status only
@@ -831,7 +747,6 @@ function App() {
         await getMonitorStatus();
 
       setMonitor(monitorData);
-
     } catch (error) {
       console.error(
         "Monitor status error:",
@@ -840,7 +755,6 @@ function App() {
     }
   }
 
-
   // ----------------------------------------------------------
   // Start monitoring
   // ----------------------------------------------------------
@@ -848,20 +762,26 @@ function App() {
   async function handleStartMonitoring() {
     if (monitor.running) return;
 
+    // Cloud Render cannot access the user's physical network
+    // interface. Live Scapy capture must run locally.
+    if (isProductionApi) {
+      setDashboardError(
+        "Live Scapy packet capture is available only when the NTA backend runs locally. The production dashboard provides API, AI classification, stored-flow analysis, and demo testing.",
+      );
+      return;
+    }
+
     setMonitorActionLoading("start");
     setDashboardError(null);
 
     try {
-
       const result =
         await startMonitor();
 
       setMonitor(result.status);
 
       await loadDashboard();
-
     } catch (error) {
-
       console.error(
         "Start monitoring error:",
         error,
@@ -874,12 +794,10 @@ function App() {
       );
 
       await refreshMonitorStatus();
-
     } finally {
       setMonitorActionLoading(null);
     }
   }
-
 
   // ----------------------------------------------------------
   // Stop monitoring
@@ -892,16 +810,13 @@ function App() {
     setDashboardError(null);
 
     try {
-
       const result =
         await stopMonitor();
 
       setMonitor(result.status);
 
       await loadDashboard();
-
     } catch (error) {
-
       console.error(
         "Stop monitoring error:",
         error,
@@ -914,19 +829,16 @@ function App() {
       );
 
       await refreshMonitorStatus();
-
     } finally {
       setMonitorActionLoading(null);
     }
   }
-
 
   // ----------------------------------------------------------
   // Initial load
   // ----------------------------------------------------------
 
   useEffect(() => {
-
     loadDashboard();
 
     const interval =
@@ -940,16 +852,13 @@ function App() {
     return () => {
       window.clearInterval(interval);
     };
-
   }, []);
-
 
   // ----------------------------------------------------------
   // Faster monitor polling while active
   // ----------------------------------------------------------
 
   useEffect(() => {
-
     if (!monitor.running) {
       return;
     }
@@ -966,9 +875,7 @@ function App() {
     return () => {
       window.clearInterval(interval);
     };
-
   }, [monitor.running]);
-
 
   // ----------------------------------------------------------
   // Derived statistics
@@ -983,9 +890,7 @@ function App() {
         ).toFixed(2)
       : "0.00";
 
-
   const trafficData = useMemo(() => {
-
     return flows
       .slice()
       .reverse()
@@ -995,9 +900,7 @@ function App() {
         packets: flow.total_packets,
         bytes: flow.total_bytes,
       }));
-
   }, [flows]);
-
 
   const detectionData = [
     {
@@ -1010,10 +913,8 @@ function App() {
     },
   ];
 
-
   const isBusy =
     monitorActionLoading !== null;
-
 
   // ----------------------------------------------------------
   // Render
@@ -1021,23 +922,16 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-
-      {/* ======================================================
-          HEADER
-      ====================================================== */}
+      {/* HEADER */}
 
       <header className="border-b border-slate-800 bg-slate-950/95 backdrop-blur">
-
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-
           <div className="flex items-center gap-4">
-
             <div className="rounded-xl bg-cyan-500/10 p-3 text-cyan-400">
               <Network className="h-6 w-6" />
             </div>
 
             <div>
-
               <h1 className="text-xl font-bold">
                 NTA{" "}
                 <span className="font-medium text-slate-400">
@@ -1048,16 +942,13 @@ function App() {
               <p className="text-sm text-slate-500">
                 Network visibility & AI-powered DDoS analysis
               </p>
-
             </div>
           </div>
 
-
           <div className="flex items-center gap-3">
-
             {/* Backend */}
-            <span className="hidden items-center gap-2 rounded-full border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-medium text-slate-400 sm:flex">
 
+            <span className="hidden items-center gap-2 rounded-full border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-medium text-slate-400 sm:flex">
               <span
                 className={`h-2 w-2 rounded-full ${
                   backendOnline
@@ -1069,13 +960,11 @@ function App() {
               {backendOnline
                 ? "Backend Online"
                 : "Backend Offline"}
-
             </span>
 
-
             {/* Monitor */}
-            <span className="hidden items-center gap-2 rounded-full border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-medium text-slate-400 md:flex">
 
+            <span className="hidden items-center gap-2 rounded-full border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-medium text-slate-400 md:flex">
               <span
                 className={`h-2 w-2 rounded-full ${
                   monitor.running
@@ -1086,12 +975,13 @@ function App() {
 
               {monitor.running
                 ? "Live Monitoring"
-                : "Monitor Stopped"}
-
+                : isProductionApi
+                  ? "Cloud Demo Mode"
+                  : "Monitor Stopped"}
             </span>
 
-
             {/* Refresh */}
+
             <button
               type="button"
               onClick={loadDashboard}
@@ -1101,43 +991,27 @@ function App() {
             >
               <RefreshCw
                 className={`h-5 w-5 ${
-                  loading
-                    ? "animate-spin"
-                    : ""
+                  loading ? "animate-spin" : ""
                 }`}
               />
             </button>
-
           </div>
-
         </div>
-
       </header>
 
-
-      {/* ======================================================
-          MAIN
-      ====================================================== */}
-
       <main className="mx-auto max-w-7xl space-y-8 px-6 py-8">
+        {/* ERROR */}
 
-
-        {/* Error */}
         {dashboardError && (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
             {dashboardError}
           </div>
         )}
 
-
-        {/* ====================================================
-            SECURITY OVERVIEW
-        ==================================================== */}
+        {/* SECURITY OVERVIEW */}
 
         <section>
-
           <div className="mb-5 flex items-center gap-3">
-
             <Shield className="h-6 w-6 text-cyan-400" />
 
             <div>
@@ -1149,12 +1023,9 @@ function App() {
                 Current network traffic classification
               </p>
             </div>
-
           </div>
 
-
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-
             <StatCard
               title="Total Flows"
               value={formatNumber(stats.total_flows)}
@@ -1186,15 +1057,10 @@ function App() {
               icon={<Gauge className="h-6 w-6" />}
               iconClass="bg-yellow-500/10 text-yellow-400"
             />
-
           </div>
-
         </section>
 
-
-        {/* ====================================================
-            LIVE MONITORING
-        ==================================================== */}
+        {/* LIVE MONITORING */}
 
         <section
           className={`rounded-2xl border p-7 ${
@@ -1203,11 +1069,8 @@ function App() {
               : "border-slate-800 bg-slate-900/60"
           }`}
         >
-
           <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-
             <div className="flex items-start gap-4">
-
               <div
                 className={`rounded-xl p-3 ${
                   monitor.running
@@ -1218,11 +1081,8 @@ function App() {
                 <Wifi className="h-6 w-6" />
               </div>
 
-
               <div>
-
                 <div className="flex flex-wrap items-center gap-3">
-
                   <h2 className="text-xl font-bold">
                     Live Network Monitoring
                   </h2>
@@ -1234,53 +1094,48 @@ function App() {
                         : "border-slate-700 bg-slate-900 text-slate-400"
                     }`}
                   >
-                    <span className="mr-2">
-                      ●
-                    </span>
+                    <span className="mr-2">●</span>
 
                     {monitor.running
                       ? "MONITORING"
-                      : "STOPPED"}
+                      : isProductionApi
+                        ? "CLOUD DEMO"
+                        : "STOPPED"}
                   </span>
-
                 </div>
 
-
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-                  Start the local Scapy monitoring engine to capture
-                  network packets, build flows, run AI classification,
-                  and persist the results.
+                  {isProductionApi
+                    ? "The production dashboard provides cloud API access, AI classification, stored-flow analysis, and controlled model testing. Live Scapy packet capture must run on the local machine because cloud servers cannot access your computer's network interface."
+                    : "Start the local Scapy monitoring engine to capture network packets, build flows, run AI classification, and persist the results."}
                 </p>
-
               </div>
-
             </div>
 
-
             {/* Controls */}
-            <div className="flex flex-wrap gap-3">
 
+            <div className="flex flex-wrap gap-3">
               <button
                 type="button"
                 onClick={handleStartMonitoring}
                 disabled={
                   monitor.running ||
                   isBusy ||
-                  !backendOnline
+                  !backendOnline ||
+                  isProductionApi
                 }
                 className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
               >
-
                 {monitorActionLoading === "start" ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Play className="h-4 w-4" />
                 )}
 
-                Start Monitoring
-
+                {isProductionApi
+                  ? "Local Capture Required"
+                  : "Start Monitoring"}
               </button>
-
 
               <button
                 type="button"
@@ -1291,7 +1146,6 @@ function App() {
                 }
                 className="flex items-center justify-center gap-2 rounded-xl border border-red-500/40 bg-red-500/5 px-6 py-3 text-sm font-semibold text-red-400 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-30"
               >
-
                 {monitorActionLoading === "stop" ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
@@ -1299,19 +1153,38 @@ function App() {
                 )}
 
                 Stop Monitoring
-
               </button>
-
             </div>
-
           </div>
 
+          {/* Production explanation */}
+
+          {isProductionApi && (
+            <div className="mt-6 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+              <div className="flex items-start gap-3">
+                <Network className="mt-0.5 h-5 w-5 shrink-0 text-cyan-400" />
+
+                <div>
+                  <p className="font-semibold text-cyan-300">
+                    Production deployment
+                  </p>
+
+                  <p className="mt-1 text-sm leading-6 text-slate-400">
+                    Render hosts the FastAPI backend and AI model,
+                    while your local computer is the environment
+                    capable of capturing live packets with Scapy.
+                    Use the local backend when demonstrating live
+                    packet capture.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Monitor statistics */}
+
           <div className="mt-7 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-
             <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-5">
-
               <p className="text-xs uppercase tracking-wide text-slate-500">
                 Packets Captured
               </p>
@@ -1319,12 +1192,9 @@ function App() {
               <p className="mt-2 text-3xl font-bold text-white">
                 {formatNumber(monitor.packets_captured)}
               </p>
-
             </div>
 
-
             <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-5">
-
               <p className="text-xs uppercase tracking-wide text-slate-500">
                 Flows Analyzed
               </p>
@@ -1332,12 +1202,9 @@ function App() {
               <p className="mt-2 text-3xl font-bold text-white">
                 {formatNumber(monitor.flows_analyzed)}
               </p>
-
             </div>
 
-
             <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-5">
-
               <p className="text-xs uppercase tracking-wide text-slate-500">
                 Active Flows
               </p>
@@ -1345,12 +1212,9 @@ function App() {
               <p className="mt-2 text-3xl font-bold text-white">
                 {formatNumber(monitor.active_flows)}
               </p>
-
             </div>
 
-
             <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-5">
-
               <p className="text-xs uppercase tracking-wide text-slate-500">
                 Completed Flows
               </p>
@@ -1358,15 +1222,12 @@ function App() {
               <p className="mt-2 text-3xl font-bold text-white">
                 {formatNumber(monitor.completed_flows)}
               </p>
-
             </div>
-
           </div>
 
-
           {/* Monitor information */}
-          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-500">
 
+          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-500">
             <span className="flex items-center gap-2">
               <Clock3 className="h-3.5 w-3.5" />
 
@@ -1375,7 +1236,6 @@ function App() {
                 monitor.started_at,
               )}
             </span>
-
 
             {!monitor.running &&
               monitor.stopped_at && (
@@ -1388,16 +1248,13 @@ function App() {
                   )}
                 </span>
               )}
-
           </div>
 
-
           {/* Last error */}
+
           {monitor.last_error && (
             <div className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
-
               <div className="flex items-start gap-2">
-
                 <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
 
                 <div>
@@ -1409,17 +1266,12 @@ function App() {
                     {monitor.last_error}
                   </p>
                 </div>
-
               </div>
-
             </div>
           )}
 
-
-          {/* Status message */}
           {!monitor.last_error && (
             <div className="mt-5 flex items-center gap-2 text-sm">
-
               <Activity
                 className={`h-4 w-4 ${
                   monitor.running
@@ -1437,31 +1289,24 @@ function App() {
               >
                 {monitor.running
                   ? "Live packet monitoring is active. Statistics update automatically."
-                  : "Live packet monitoring is stopped."}
+                  : isProductionApi
+                    ? "Production dashboard is connected. Live packet capture requires the local NTA backend."
+                    : "Live packet monitoring is stopped."}
               </span>
-
             </div>
           )}
-
         </section>
 
-
-        {/* ====================================================
-            AI SECURITY STATUS
-        ==================================================== */}
+        {/* AI SECURITY STATUS */}
 
         <section className="rounded-2xl border border-cyan-500/20 bg-cyan-950/10 p-6">
-
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
             <div className="flex items-center gap-4">
-
               <div className="rounded-xl bg-cyan-500/10 p-3 text-cyan-400">
                 <Sparkles className="h-6 w-6" />
               </div>
 
               <div>
-
                 <h3 className="font-semibold text-white">
                   AI Security Status
                 </h3>
@@ -1470,52 +1315,35 @@ function App() {
                   XGBoost classifier is connected to the
                   network-flow analysis pipeline.
                 </p>
-
               </div>
-
             </div>
 
-
             <div className="flex items-center gap-2 text-sm font-semibold text-emerald-400">
-
               <CheckCircle2 className="h-5 w-5" />
 
               AI Engine Active
-
             </div>
-
           </div>
-
         </section>
 
-
-        {/* ====================================================
-            HOW NTA WORKS
-        ==================================================== */}
+        {/* HOW NTA WORKS */}
 
         <section>
-
           <div className="mb-5">
-
             <div className="flex items-center gap-3">
-
               <BrainCircuit className="h-6 w-6 text-cyan-400" />
 
               <h2 className="text-xl font-bold">
                 How NTA Works
               </h2>
-
             </div>
 
             <p className="mt-1 text-sm text-slate-500">
               End-to-end traffic analysis and AI classification pipeline
             </p>
-
           </div>
 
-
           <div className="flex flex-col gap-3 xl:flex-row">
-
             <PipelineStep
               number={1}
               title="Packet Capture"
@@ -1567,23 +1395,14 @@ function App() {
               description="FastAPI exposes results for this React monitoring dashboard."
               icon={<BarChart3 className="h-4 w-4" />}
             />
-
           </div>
-
         </section>
 
-
-        {/* ====================================================
-            ANALYTICS
-        ==================================================== */}
+        {/* ANALYTICS */}
 
         <section className="grid gap-6 lg:grid-cols-2">
-
-          {/* Traffic chart */}
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-
             <div className="mb-5 flex items-center justify-between">
-
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-cyan-400">
                   Traffic Analysis
@@ -1595,26 +1414,19 @@ function App() {
               </div>
 
               <BarChart3 className="h-5 w-5 text-slate-500" />
-
             </div>
 
-
             <div className="h-72">
-
               {trafficData.length === 0 ? (
-
                 <div className="flex h-full items-center justify-center text-sm text-slate-500">
                   No traffic data available.
                 </div>
-
               ) : (
-
                 <ResponsiveContainer
                   width="100%"
                   height="100%"
                 >
                   <BarChart data={trafficData}>
-
                     <CartesianGrid
                       strokeDasharray="3 3"
                       stroke="#1e293b"
@@ -1645,22 +1457,14 @@ function App() {
                       fill="#22d3ee"
                       radius={[5, 5, 0, 0]}
                     />
-
                   </BarChart>
                 </ResponsiveContainer>
-
               )}
-
             </div>
-
           </div>
 
-
-          {/* Detection chart */}
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-
             <div className="mb-5 flex items-center justify-between">
-
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-cyan-400">
                   Classification
@@ -1672,26 +1476,19 @@ function App() {
               </div>
 
               <ShieldCheck className="h-5 w-5 text-slate-500" />
-
             </div>
 
-
             <div className="h-72">
-
               {stats.total_flows === 0 ? (
-
                 <div className="flex h-full items-center justify-center text-sm text-slate-500">
                   No classification data available.
                 </div>
-
               ) : (
-
                 <ResponsiveContainer
                   width="100%"
                   height="100%"
                 >
                   <PieChart>
-
                     <Pie
                       data={detectionData}
                       dataKey="value"
@@ -1702,11 +1499,8 @@ function App() {
                       outerRadius={95}
                       paddingAngle={4}
                     >
-
                       <Cell fill="#10b981" />
-
                       <Cell fill="#ef4444" />
-
                     </Pie>
 
                     <Tooltip
@@ -1719,118 +1513,67 @@ function App() {
                     />
 
                     <Legend />
-
                   </PieChart>
                 </ResponsiveContainer>
-
               )}
-
             </div>
-
           </div>
-
         </section>
 
-
-        {/* ====================================================
-            FLOW TABLE
-        ==================================================== */}
+        {/* FLOW TABLE */}
 
         <section className="rounded-2xl border border-slate-800 bg-slate-900/60 shadow-xl">
-
           <div className="flex flex-col gap-4 border-b border-slate-800 p-6 md:flex-row md:items-center md:justify-between">
-
             <div>
-
               <div className="flex items-center gap-2">
-
                 <Database className="h-5 w-5 text-cyan-400" />
 
                 <h2 className="text-lg font-semibold text-white">
                   Recent Network Flows
                 </h2>
-
               </div>
 
               <p className="mt-1 text-sm text-slate-500">
                 Latest flows analyzed by the NTA pipeline
               </p>
-
             </div>
-
 
             <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-xs text-slate-400">
               {flows.length} displayed
             </span>
-
           </div>
 
-
           <div className="overflow-x-auto">
-
             <table className="w-full min-w-[900px] text-left text-sm">
-
               <thead className="border-b border-slate-800 bg-slate-950/60 text-xs uppercase tracking-wider text-slate-500">
-
                 <tr>
-
-                  <th className="px-6 py-4">
-                    Flow
-                  </th>
-
-                  <th className="px-6 py-4">
-                    Protocol
-                  </th>
-
-                  <th className="px-6 py-4">
-                    Packets
-                  </th>
-
-                  <th className="px-6 py-4">
-                    Bytes
-                  </th>
-
-                  <th className="px-6 py-4">
-                    AI Result
-                  </th>
-
-                  <th className="px-6 py-4">
-                    Action
-                  </th>
-
+                  <th className="px-6 py-4">Flow</th>
+                  <th className="px-6 py-4">Protocol</th>
+                  <th className="px-6 py-4">Packets</th>
+                  <th className="px-6 py-4">Bytes</th>
+                  <th className="px-6 py-4">AI Result</th>
+                  <th className="px-6 py-4">Action</th>
                 </tr>
-
               </thead>
 
-
               <tbody className="divide-y divide-slate-800">
-
                 {flows.length === 0 ? (
-
                   <tr>
-
                     <td
                       colSpan={6}
                       className="px-6 py-12 text-center text-slate-500"
                     >
                       No network flows have been stored yet.
                     </td>
-
                   </tr>
-
                 ) : (
-
                   flows.map((flow) => (
-
                     <tr
                       key={flow.id}
                       className="transition hover:bg-slate-950/60"
                     >
-
                       <td className="px-6 py-4">
-
                         <div className="max-w-[330px]">
-
                           <p
                             className="truncate font-mono text-xs text-slate-300"
                             title={`${flow.src_ip}:${flow.src_port}`}
@@ -1850,43 +1593,31 @@ function App() {
                             {formatAddress(flow.dst_ip)}:
                             {flow.dst_port}
                           </p>
-
                         </div>
-
                       </td>
 
-
                       <td className="px-6 py-4">
-
                         <span className="rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-300">
                           {flow.protocol}
                         </span>
-
                       </td>
-
 
                       <td className="px-6 py-4 text-slate-300">
                         {formatNumber(flow.total_packets)}
                       </td>
 
-
                       <td className="px-6 py-4 text-slate-300">
                         {formatBytes(flow.total_bytes)}
                       </td>
 
-
                       <td className="px-6 py-4">
-
                         <PredictionBadge
                           label={flow.label}
                           probability={flow.probability}
                         />
-
                       </td>
 
-
                       <td className="px-6 py-4">
-
                         <button
                           type="button"
                           onClick={() =>
@@ -1897,61 +1628,37 @@ function App() {
                           <Eye className="h-3.5 w-3.5" />
                           Inspect
                         </button>
-
                       </td>
-
                     </tr>
-
                   ))
-
                 )}
-
               </tbody>
-
             </table>
-
           </div>
-
         </section>
 
-
-        {/* ====================================================
-            AI MODEL LAB
-        ==================================================== */}
+        {/* AI MODEL LAB */}
 
         <DemoTestLab />
 
-
-        {/* ====================================================
-            FOOTER
-        ==================================================== */}
+        {/* FOOTER */}
 
         <footer className="border-t border-slate-800 py-6">
-
           <div className="flex flex-col gap-3 text-xs text-slate-600 md:flex-row md:items-center md:justify-between">
-
             <div className="flex items-center gap-2">
-
               <Server className="h-4 w-4" />
 
               NTA — AI Network Traffic Analyzer
-
             </div>
 
             <div>
               FastAPI • React • Scapy • XGBoost • SQLite
             </div>
-
           </div>
-
         </footer>
-
       </main>
 
-
-      {/* ======================================================
-          FLOW MODAL
-      ====================================================== */}
+      {/* FLOW MODAL */}
 
       {selectedFlow && (
         <FlowDetails
@@ -1961,10 +1668,8 @@ function App() {
           }
         />
       )}
-
     </div>
   );
 }
-
 
 export default App;
